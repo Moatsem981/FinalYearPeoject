@@ -100,32 +100,32 @@ class AppFace extends StatelessWidget {
       "icon": Icons.translate,
       "title": "Language Exchange",
       "subtitle": "Practice new languages and connect with native speakers.",
-      "route": null,
+      "route": "/languageExchange",
     },
     {
       "icon": Icons.event,
       "title": "Events",
       "subtitle": "Join student-friendly events in your city and campus.",
-      "route": null,
+      "route": "/eventsScreen",
     },
     {
       "icon": Icons.map,
       "title": "Nearby Friends",
       "subtitle": "Connect with students near you and grow your circle.",
-      "route": null,
+      "route": "/nearbyFriends",
     },
     {
       "icon": Icons.chat,
       "title": "Group Chats",
       "subtitle":
           "AI-powered chat moderation for safe and engaging discussions.",
-      "route": null,
+      "route": "/groupChats",
     },
     {
       "icon": Icons.analytics,
       "title": "Social Insights",
       "subtitle": "Track your connections & events participation over time.",
-      "route": null,
+      "route": "/socialInsights",
     },
   ];
 

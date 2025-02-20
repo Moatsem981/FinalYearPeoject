@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:myunicircle1/screens/authentication_screen.dart';
 import 'package:myunicircle1/screens/AppFace.dart';
 import 'package:myunicircle1/screens/FindCircleScreen.dart';
+import 'package:myunicircle1/screens/LanguageExchangeScreen.dart';
+import 'package:myunicircle1/screens/EventsScreen.dart';
+import 'package:myunicircle1/screens/NearbyFriendsScreen.dart';
+import 'package:myunicircle1/screens/GroupChatsScreen.dart';
+import 'package:myunicircle1/screens/SocialInsights.dart';
 
 void main() {
   runApp(const MyApp());
@@ -21,7 +26,12 @@ class MyApp extends StatelessWidget {
         "/findCircle":
             (context) =>
                 const FindCircleScreen(), // Register route for FindCircle
-      }, //
+        "/languageExchange": (context) => const LanguageExchangeScreen(),
+        "/eventsScreen": (context) => const EventsScreen(),
+        "/nearbyFriends": (context) => const NearbyFriendsScreen(),
+        "/groupChats": (context) => const GroupChatsScreen(),
+        "/socialInsights": (context) => const SocialInsightsScreen(),
+      },
     );
   }
 }
