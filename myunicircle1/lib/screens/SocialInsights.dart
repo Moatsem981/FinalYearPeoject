@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // ✅ Make sure this package is installed!
+import 'package:fl_chart/fl_chart.dart';
 
 class SocialInsightsScreen extends StatelessWidget {
   const SocialInsightsScreen({super.key});

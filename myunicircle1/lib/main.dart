@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:myunicircle1/screens/authentication_screen.dart';
 import 'package:myunicircle1/screens/AppFace.dart';
 import 'package:myunicircle1/screens/FindCircleScreen.dart';
 import 'package:myunicircle1/screens/LanguageExchangeScreen.dart';
 import 'package:myunicircle1/screens/EventsScreen.dart';
 import 'package:myunicircle1/screens/NearbyFriendsScreen.dart';
-import 'package:myunicircle1/screens/GroupChatsScreen.dart';
+import 'package:myunicircle1/screens/SmartStudyPlanner.dart';
 import 'package:myunicircle1/screens/SocialInsights.dart';
+import 'package:myunicircle1/screens/ProfileScreen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
+
+  try {
+    await Firebase.initializeApp(); // Initialize Firebase
+    print(
+      "🔥 Firebase Initialized Successfully!",
+    ); // Debugging Firebase Initialization
+  } catch (e) {
+    print("🔥 Firebase Initialization Error: $e"); // Catch any Firebase errors
+  }
+
   runApp(const MyApp());
 }
 
@@ -23,14 +36,13 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       home: AppFace(),
       routes: {
-        "/findCircle":
-            (context) =>
-                const FindCircleScreen(), // Register route for FindCircle
+        "/findCircle": (context) => FindCircleScreen(),
         "/languageExchange": (context) => const LanguageExchangeScreen(),
         "/eventsScreen": (context) => const EventsScreen(),
         "/nearbyFriends": (context) => const NearbyFriendsScreen(),
-        "/groupChats": (context) => const GroupChatsScreen(),
+        "/SmartStudyPlanner": (context) => const SmartStudyPlanner(),
         "/socialInsights": (context) => const SocialInsightsScreen(),
+        "/profileScreen": (context) => const ProfileScreen(),
       },
     );
   }
@@ -50,7 +62,7 @@ class WelcomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 80), // Moves logo higher up
+                const SizedBox(height: 80),
                 // Logo at the top
                 Image.asset(
                   "assets/UNICIRCLELOGO2.png",

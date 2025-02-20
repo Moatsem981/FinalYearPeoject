@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 
 class FindCircleScreen extends StatefulWidget {
-  const FindCircleScreen({super.key});
-
   @override
   _FindCircleScreenState createState() => _FindCircleScreenState();
 }
@@ -16,7 +13,6 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
   String searchCircleName = "";
 
   TextEditingController searchController = TextEditingController();
-  TextEditingController circleNameController = TextEditingController();
   List<Map<String, dynamic>> joinedCircles = [];
 
   final List<String> interests = [
@@ -79,6 +75,7 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
     },
   ];
 
+  // 🔍 **Filter Function**
   List<Map<String, dynamic>> getFilteredCircles() {
     return circles.where((circle) {
       return (searchCircleName.isEmpty ||
@@ -96,81 +93,6 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
               circle["activity"] == selectedActivityType) &&
           (selectedSize == null || circle["size"] == selectedSize);
     }).toList();
-  }
-
-  void _showCreateCircleDialog() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.black,
-          title: const Text(
-            "Create New Circle",
-            style: TextStyle(color: Colors.white),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: circleNameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("Circle Name"),
-              ),
-              const SizedBox(height: 15),
-              DropdownButtonFormField<String>(
-                dropdownColor: Colors.black,
-                value: selectedInterest,
-                decoration: _inputDecoration("Select Interest"),
-                items:
-                    interests.map((interest) {
-                      return DropdownMenuItem(
-                        value: interest,
-                        child: Text(
-                          interest,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      );
-                    }).toList(),
-                onChanged: (value) => setState(() => selectedInterest = value),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (circleNameController.text.isNotEmpty &&
-                    selectedInterest != null) {
-                  setState(() {
-                    circles.add({
-                      "name": circleNameController.text,
-                      "description": "A new circle for ${selectedInterest!}",
-                      "interest": selectedInterest!,
-                      "language": "English",
-                      "activity": "Casual Hangout",
-                      "size": "Small (2-10)",
-                    });
-                  });
-                  circleNameController.clear();
-                  selectedInterest = null;
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text(
-                "Create",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                "Cancel",
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -193,12 +115,6 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
           ],
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
-            onPressed: _showCreateCircleDialog,
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -221,27 +137,48 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
               "Filter by Interest",
               selectedInterest,
               interests,
-              (val) {
-                setState(() => selectedInterest = val);
-              },
+              (val) => setState(() => selectedInterest = val),
             ),
             const SizedBox(height: 10),
             _buildFilterDropdown(
               "Filter by Language",
               selectedLanguage,
               languages,
-              (val) {
-                setState(() => selectedLanguage = val);
-              },
+              (val) => setState(() => selectedLanguage = val),
             ),
             const SizedBox(height: 10),
             _buildFilterDropdown(
               "Filter by Activity Type",
               selectedActivityType,
               activityTypes,
-              (val) {
-                setState(() => selectedActivityType = val);
-              },
+              (val) => setState(() => selectedActivityType = val),
+            ),
+            const SizedBox(height: 10),
+            _buildFilterDropdown(
+              "Filter by Circle Size",
+              selectedSize,
+              sizes,
+              (val) => setState(() => selectedSize = val),
+            ),
+            const SizedBox(height: 20),
+
+            // 🔘 **Find Circles Button**
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => setState(() {}),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF7F56BB),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  "Find Circles",
+                  style: TextStyle(fontSize: 18, color: Colors.white),
+                ),
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -272,6 +209,9 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
                       trailing: ElevatedButton(
                         onPressed:
                             () => setState(() => joinedCircles.add(circle)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7F56BB),
+                        ),
                         child: const Text("Join"),
                       ),
                     ),
@@ -285,6 +225,7 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
     );
   }
 
+  // 🔽 **Dropdown Builder**
   Widget _buildFilterDropdown(
     String label,
     String? value,
@@ -306,6 +247,7 @@ class _FindCircleScreenState extends State<FindCircleScreen> {
     );
   }
 
+  // 🎨 **Text Input Styling**
   InputDecoration _inputDecoration(String label) => InputDecoration(
     labelText: label,
     labelStyle: const TextStyle(color: Colors.white70),

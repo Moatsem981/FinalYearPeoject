@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "830607147158",
+    "project_id": "unicircle-6f8b4",
+    "storage_bucket": "unicircle-6f8b4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:830607147158:android:963838e75663e77edd02b7",
+        "android_client_info": {
+          "package_name": "com.example.myunicircle1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDAbMd1Dqqd99elj6MTVGiIAlqwLbUFL04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
