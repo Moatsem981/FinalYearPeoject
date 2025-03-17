@@ -15,7 +15,7 @@ class ProfileScreen extends StatelessWidget {
         title: const Text("Profile"),
         centerTitle: true,
         actions: [
-          // Profile Picture (Smaller & Top Right)
+          // Profile Picture
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
@@ -47,7 +47,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Profile Options (Compact & Well-Spaced)
+            // Profile Options
             _buildProfileOption(
               icon: Icons.edit,
               title: "Edit Profile",
@@ -109,7 +109,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // Profile Options (Compact Design)
+  // Profile Options
   Widget _buildProfileOption({
     required IconData icon,
     required String title,

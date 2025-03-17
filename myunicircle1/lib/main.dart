@@ -2,24 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:myunicircle1/screens/authentication_screen.dart';
 import 'package:myunicircle1/screens/AppFace.dart';
-import 'package:myunicircle1/screens/FindCircleScreen.dart';
+import 'package:myunicircle1/screens/scanIngredients.dart';
 import 'package:myunicircle1/screens/LanguageExchangeScreen.dart';
-import 'package:myunicircle1/screens/EventsScreen.dart';
+import 'package:myunicircle1/screens/SuggestedMeals.dart';
 import 'package:myunicircle1/screens/NearbyFriendsScreen.dart';
 import 'package:myunicircle1/screens/SmartStudyPlanner.dart';
 import 'package:myunicircle1/screens/SocialInsights.dart';
 import 'package:myunicircle1/screens/ProfileScreen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter is initialized
+  WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await Firebase.initializeApp(); // Initialize Firebase
-    print(
-      "🔥 Firebase Initialized Successfully!",
-    ); // Debugging Firebase Initialization
+    await Firebase.initializeApp();
+    print("🔥 Firebase Initialized Successfully!");
   } catch (e) {
-    print("🔥 Firebase Initialization Error: $e"); // Catch any Firebase errors
+    print("🔥 Firebase Initialization Error: $e");
   }
 
   runApp(const MyApp());
@@ -35,10 +33,11 @@ class MyApp extends StatelessWidget {
       title: 'Uni Circle',
       theme: ThemeData(primarySwatch: Colors.blue),
       home: AppFace(),
+
       routes: {
-        "/findCircle": (context) => FindCircleScreen(),
+        "/scanIngredients": (context) => ScanIngredientsScreen(),
         "/languageExchange": (context) => const LanguageExchangeScreen(),
-        "/eventsScreen": (context) => const EventsScreen(),
+        "/suggestedMeals": (context) => const SuggestedMealsScreen(),
         "/nearbyFriends": (context) => const NearbyFriendsScreen(),
         "/SmartStudyPlanner": (context) => const SmartStudyPlanner(),
         "/socialInsights": (context) => const SocialInsightsScreen(),

@@ -28,7 +28,7 @@ class SocialInsightsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // Statistics Cards (Total Friends, Circles Joined, Messages Sent)
+            // (Total Friends, Circles Joined, Messages Sent)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

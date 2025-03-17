@@ -30,7 +30,7 @@ class _AppFaceState extends State<AppFace> {
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
-        selectedItemColor: const Color(0xFF7F56BB),
+        selectedItemColor: Colors.green,
         unselectedItemColor: Colors.white70,
         currentIndex: _selectedIndex,
         onTap: _onTabSelected,
@@ -47,54 +47,58 @@ class _AppFaceState extends State<AppFace> {
   }
 }
 
-// ✅ HomeScreen with All Features
-class HomeScreen extends StatelessWidget {
+// ✅ HomeScreen with AI Meal Suggestion Features
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final List<Map<String, dynamic>> _features = [
     {
-      "icon": Icons.group,
-      "title": "Find a Circle",
-      "subtitle": "Find like-minded students and grow your network.",
-      "route": "/findCircle",
+      "icon": Icons.camera_alt,
+      "title": "Scan Ingredients",
+      "subtitle":
+          "Upload food images to get meal suggestions based on your available ingredients.",
+      "route": "/scanIngredients",
     },
     {
-      "icon": Icons.translate,
-      "title": "Language Exchange",
-      "subtitle": "Practice new languages and connect with native speakers.",
-      "route": "/languageExchange",
+      "icon": Icons.restaurant,
+      "title": "Suggested Meals",
+      "subtitle": "AI-generated meal ideas based on your mood or cravings.",
+      "route": "/suggestedMeals",
     },
     {
-      "icon": Icons.event,
-      "title": "Events",
-      "subtitle": "Join student-friendly events in your city and campus.",
-      "route": "/eventsScreen",
-    },
-    {
-      "icon": Icons.map,
-      "title": "Nearby Friends",
-      "subtitle": "Connect with students near you and grow your circle.",
-      "route": "/nearbyFriends",
-    },
-    {
-      "icon": Icons.book,
-      "title": "Smart Study Planner",
-      "subtitle": "AI-powered study scheduling & productivity tracking.",
-      "route": "/SmartStudyPlanner",
+      "icon": Icons.restaurant_menu,
+      "title": "Quick Recipes",
+      "subtitle": "Discover easy and fast recipes.",
+      "route": "/quickRecipes",
     },
     {
       "icon": Icons.analytics,
-      "title": "Social Insights",
-      "subtitle": "Track your connections & events participation over time.",
-      "route": "/socialInsights",
+      "title": "Nutrition Tracker",
+      "subtitle": "Monitor your daily food intake and macros.",
+      "route": "/nutritionTracker",
     },
   ];
+
+  // List of images for the slider
+  final List<String> _sliderImages = [
+    "assets/AppMainPic1.jpg",
+    "assets/AppMainPic2.jpg",
+    "assets/AppMainPic3.jpg",
+  ];
+
+  // Track the current page in the slider
+  int _currentPage = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF7F56BB),
-        title: const Text("MyUniCircle"),
+        backgroundColor: Colors.green,
+        title: const Text("AI Meal & Nutrition"),
         centerTitle: true,
         actions: [
           IconButton(
@@ -111,7 +115,7 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Welcome back, Student! 🎓",
+              "Welcome to UniMeals 🍽️",
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -120,10 +124,74 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Text(
-              "Find new friends, join events, and engage in meaningful conversations!",
-              style: TextStyle(fontSize: 16, color: Colors.white70),
+              "Healthy meals made just for you—based on your mood, taste, and ingredients. Plus, track your nutrition intake!",
+              style: TextStyle(fontSize: 16, color: Colors.white),
             ),
             const SizedBox(height: 20),
+
+            // Image Slider with Page Indicator
+            Column(
+              children: [
+                SizedBox(
+                  height: 200, // Adjust height as needed
+                  child: PageView.builder(
+                    itemCount: _sliderImages.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPage = index; // Update the current page index
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            _sliderImages[index],
+                            fit:
+                                BoxFit
+                                    .cover, // Ensure the image covers the area
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
+                                child: Text(
+                                  "Error loading image: ${_sliderImages[index]}",
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Page Indicator (Dots)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    _sliderImages.length,
+                    (index) => Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color:
+                            _currentPage == index
+                                ? Colors
+                                    .green // Active dot color
+                                : Colors.grey, // Inactive dot color
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Feature Grid
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -167,12 +235,12 @@ class HomeScreen extends StatelessWidget {
         color: Colors.white10,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.all(7.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 40, color: const Color(0xFF7F56BB)),
-              const SizedBox(height: 10),
+              Icon(icon, size: 40, color: Colors.green),
+              const SizedBox(height: 5),
               Text(
                 title,
                 style: const TextStyle(
