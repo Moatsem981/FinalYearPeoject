@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:io';
-import 'package:flutter/services.dart' show rootBundle; // Import for rootBundle
-import 'package:image/image.dart' as img; // Use a prefix for the image package
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:image/image.dart' as img;
+import 'package:csv/csv.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ScanIngredientsScreen extends StatefulWidget {
   @override
@@ -15,6 +17,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   List<String> _predictions = [];
   List<String> _labels = [];
   bool _isLoading = false;
+  List<Map<String, String>> _recipes = [];
 
   final ImagePicker _picker = ImagePicker();
   Interpreter? _interpreter;
@@ -23,11 +26,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   void initState() {
     super.initState();
     _loadModel();
+    _loadRecipes();
   }
 
   Future<void> _loadModel() async {
     try {
-      // ✅ Check if the asset exists before loading
       _labels = await _loadLabels("assets/labels.txt");
       final byteData = await rootBundle.load('assets/FVmodel.tflite');
       if (byteData.lengthInBytes == 0) {
@@ -39,6 +42,36 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       print("✅ Model loaded successfully!");
     } catch (e) {
       print("❌ Failed to load model: $e");
+    }
+  }
+
+  Future<void> _loadRecipes() async {
+    try {
+      final csvString = await rootBundle.loadString(
+        'assets/healthy_fruit_veg_recipes_FINAL.csv',
+      );
+      List<List<dynamic>> csvTable = CsvToListConverter().convert(csvString);
+
+      // Debug: Print the first few rows of the CSV file
+      print("CSV File Loaded. First few rows:");
+      for (int i = 0; i < (csvTable.length > 5 ? 5 : csvTable.length); i++) {
+        print(csvTable[i]);
+      }
+
+      // Assuming the first row is the header
+      List<String> headers = csvTable[0].map((e) => e.toString()).toList();
+      for (int i = 1; i < csvTable.length; i++) {
+        Map<String, String> recipe = {};
+        for (int j = 0; j < headers.length; j++) {
+          recipe[headers[j]] = csvTable[i][j].toString();
+        }
+        _recipes.add(recipe);
+      }
+
+      // Debug: Print number of recipes loaded
+      print("Number of Recipes Loaded: ${_recipes.length}");
+    } catch (e) {
+      print("❌ Failed to load recipes: $e");
     }
   }
 
@@ -63,31 +96,24 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
     });
 
     try {
-      // ✅ Get correctly formatted input tensor
       var inputImage = await _preprocessImage(imageFile);
       if (inputImage.isEmpty) return;
 
-      // ✅ Check number of labels
       print("📌 Number of labels: ${_labels.length}");
 
-      // ✅ Ensure output shape matches the number of labels
       var output = List.filled(
         _labels.length,
         0.0,
       ).reshape([1, _labels.length]);
 
-      // 🔥 Run inference
       _interpreter!.run(inputImage, output);
 
-      // ✅ Convert output to List<double>
       List<double> outputList = List<double>.from(output[0]);
 
-      // ✅ Get index of highest probability
       int predictedIndex = outputList.indexOf(
         outputList.reduce((a, b) => a > b ? a : b),
       );
 
-      // ✅ Get label from index
       String predictedLabel = _labels[predictedIndex];
 
       setState(() {
@@ -115,27 +141,20 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       return [];
     }
 
-    // ✅ Resize image to the correct shape (MATCH IT TO YOUR MODEL)
-    var resizedImage = img.copyResize(
-      image,
-      width: 150,
-      height: 150,
-    ); // Change to 224 if needed
+    var resizedImage = img.copyResize(image, width: 150, height: 150);
 
-    // ✅ Normalize pixels (Ensure values are in range 0-1)
     var normalizedImage = List.generate(
-      150, // Change to 224 if your model expects 224x224
+      150,
       (y) => List.generate(150, (x) {
         var pixel = resizedImage.getPixel(x, y);
         return [
-          img.getRed(pixel) / 255.0, // Normalize Red channel
-          img.getGreen(pixel) / 255.0, // Normalize Green channel
-          img.getBlue(pixel) / 255.0, // Normalize Blue channel
+          img.getRed(pixel) / 255.0,
+          img.getGreen(pixel) / 255.0,
+          img.getBlue(pixel) / 255.0,
         ];
       }),
     );
 
-    // ✅ Reshape image for model input (batch size of 1)
     return [normalizedImage];
   }
 
@@ -149,6 +168,82 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       _selectedImages.clear();
       _predictions.clear();
     });
+  }
+
+  void _suggestMeals() async {
+    if (_predictions.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("No ingredients predicted yet!")));
+      return;
+    }
+
+    print("🔍 Searching Firestore for recipes with ingredients: $_predictions");
+
+    try {
+      final recipesCollection = FirebaseFirestore.instance.collection(
+        "recipes",
+      );
+      List<Map<String, String>> suggestedRecipes = [];
+
+      for (String ingredient in _predictions) {
+        ingredient = ingredient.trim().toLowerCase(); // Normalize input
+
+        // Try searching with arrayContains
+        var querySnapshot =
+            await recipesCollection
+                .where("Main_Ingredients", arrayContains: ingredient)
+                .limit(20) // ✅ Limit the results to 20
+                .get();
+
+        // If no results, try substring search (for string-based Main_Ingredients)
+        if (querySnapshot.docs.isEmpty) {
+          querySnapshot =
+              await recipesCollection
+                  .where("Main_Ingredients", isGreaterThanOrEqualTo: ingredient)
+                  .where(
+                    "Main_Ingredients",
+                    isLessThanOrEqualTo: ingredient + '\uf8ff',
+                  )
+                  .limit(20) // ✅ Limit the results to 20
+                  .get();
+        }
+
+        for (var doc in querySnapshot.docs) {
+          Map<String, String> recipe = {};
+          doc.data().forEach((key, value) {
+            recipe[key] = value.toString();
+          });
+          suggestedRecipes.add(recipe);
+        }
+
+        // ✅ If we reach 20 recipes, stop fetching more
+        if (suggestedRecipes.length >= 20) break;
+      }
+
+      print("✅ Found ${suggestedRecipes.length} matching recipes!");
+
+      if (suggestedRecipes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("No recipes found for predicted ingredients!"),
+          ),
+        );
+        return;
+      }
+
+      // ✅ Ensure we only take the first 20 results
+      suggestedRecipes = suggestedRecipes.take(20).toList();
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SuggestedMealsScreen(recipes: suggestedRecipes),
+        ),
+      );
+    } catch (e) {
+      print("❌ Error fetching recipes: $e");
+    }
   }
 
   @override
@@ -367,11 +462,71 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                   ),
                 ),
                 SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: _suggestMeals,
+                    icon: Icon(Icons.restaurant, color: Colors.white),
+                    label: Text(
+                      "Suggest Meals",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 20),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class SuggestedMealsScreen extends StatelessWidget {
+  final List<Map<String, String>> recipes;
+
+  SuggestedMealsScreen({required this.recipes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Suggested Meals")),
+      body:
+          recipes.isEmpty
+              ? Center(
+                child: Text(
+                  "No recipes found for the predicted ingredients.",
+                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                ),
+              )
+              : ListView.builder(
+                itemCount: recipes.length,
+                itemBuilder: (context, index) {
+                  final recipe = recipes[index];
+                  return Card(
+                    margin: EdgeInsets.all(8.0),
+                    child: ListTile(
+                      title: Text(recipe['Recipe Name'] ?? 'No Name'),
+                      subtitle: Text(
+                        recipe['Cleaned_Ingredients'] ?? 'No Ingredients',
+                      ),
+                      onTap: () {
+                        // You can add more details here if needed
+                      },
+                    ),
+                  );
+                },
+              ),
     );
   }
 }

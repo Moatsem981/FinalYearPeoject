@@ -39,6 +39,7 @@ flutter:
     - assets/AppMainPic3.jpg
     - assets/labels.txt
     - assets/FVmodel.tflite
+    - assets/healthy_fruit_veg_recipes_FINAL.csv
     
     
     

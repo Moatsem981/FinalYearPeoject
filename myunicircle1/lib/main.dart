@@ -9,6 +9,8 @@ import 'package:myunicircle1/screens/NearbyFriendsScreen.dart';
 import 'package:myunicircle1/screens/SmartStudyPlanner.dart';
 import 'package:myunicircle1/screens/SocialInsights.dart';
 import 'package:myunicircle1/screens/ProfileScreen.dart';
+import 'package:myunicircle1/screens/SuggestedMeals.dart' as suggestedMeals;
+import 'package:myunicircle1/screens/UploadScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,12 +34,13 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Uni Circle',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: AppFace(),
+      home: ScanIngredientsScreen(),
 
       routes: {
         "/scanIngredients": (context) => ScanIngredientsScreen(),
         "/languageExchange": (context) => const LanguageExchangeScreen(),
-        "/suggestedMeals": (context) => const SuggestedMealsScreen(),
+        "/suggestedMeals":
+            (context) => const suggestedMeals.SuggestedMealsScreen(),
         "/nearbyFriends": (context) => const NearbyFriendsScreen(),
         "/SmartStudyPlanner": (context) => const SmartStudyPlanner(),
         "/socialInsights": (context) => const SocialInsightsScreen(),
