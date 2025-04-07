@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:image/image.dart' as img;
 import 'package:csv/csv.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:myunicircle1/screens/RecipeSwipesScreen.dart';
 
 class ScanIngredientsScreen extends StatefulWidget {
   @override
@@ -189,14 +190,14 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       for (String ingredient in _predictions) {
         ingredient = ingredient.trim().toLowerCase(); // Normalize input
 
-        // Try searching with arrayContains
+        // 🔹 Try searching with arrayContains
         var querySnapshot =
             await recipesCollection
                 .where("Main_Ingredients", arrayContains: ingredient)
-                .limit(20) // ✅ Limit the results to 20
+                .limit(20) // ✅ Limit results to 20
                 .get();
 
-        // If no results, try substring search (for string-based Main_Ingredients)
+        // 🔹 If no results, try substring search (for string-based Main_Ingredients)
         if (querySnapshot.docs.isEmpty) {
           querySnapshot =
               await recipesCollection
@@ -205,7 +206,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                     "Main_Ingredients",
                     isLessThanOrEqualTo: ingredient + '\uf8ff',
                   )
-                  .limit(20) // ✅ Limit the results to 20
+                  .limit(20) // ✅ Limit results to 20
                   .get();
         }
 
@@ -214,6 +215,11 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
           doc.data().forEach((key, value) {
             recipe[key] = value.toString();
           });
+
+          // 🔹 Add image path dynamically from local assets
+          String imageName = recipe['Image_Name'] ?? 'default_image';
+          recipe['Image_Path'] = 'assets/recipe_images/$imageName.jpg';
+
           suggestedRecipes.add(recipe);
         }
 
@@ -238,7 +244,7 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => SuggestedMealsScreen(recipes: suggestedRecipes),
+          builder: (context) => RecipeSwipesScreen(recipes: suggestedRecipes),
         ),
       );
     } catch (e) {

@@ -3,14 +3,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:myunicircle1/screens/authentication_screen.dart';
 import 'package:myunicircle1/screens/AppFace.dart';
 import 'package:myunicircle1/screens/scanIngredients.dart';
-import 'package:myunicircle1/screens/LanguageExchangeScreen.dart';
 import 'package:myunicircle1/screens/SuggestedMeals.dart';
-import 'package:myunicircle1/screens/NearbyFriendsScreen.dart';
-import 'package:myunicircle1/screens/SmartStudyPlanner.dart';
+import 'package:myunicircle1/screens/ChatbotOnboardingScreen.dart';
 import 'package:myunicircle1/screens/SocialInsights.dart';
 import 'package:myunicircle1/screens/ProfileScreen.dart';
 import 'package:myunicircle1/screens/SuggestedMeals.dart' as suggestedMeals;
-import 'package:myunicircle1/screens/UploadScreen.dart';
+import 'package:myunicircle1/screens/InitialRedirectScreen.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ add this
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,17 +34,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Uni Circle',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: ScanIngredientsScreen(),
+      home: AuthenticationScreen(),
 
       routes: {
         "/scanIngredients": (context) => ScanIngredientsScreen(),
-        "/languageExchange": (context) => const LanguageExchangeScreen(),
         "/suggestedMeals":
             (context) => const suggestedMeals.SuggestedMealsScreen(),
-        "/nearbyFriends": (context) => const NearbyFriendsScreen(),
-        "/SmartStudyPlanner": (context) => const SmartStudyPlanner(),
         "/socialInsights": (context) => const SocialInsightsScreen(),
         "/profileScreen": (context) => const ProfileScreen(),
+        "/chatbotOnboarding": (context) => ChatbotOnboardingScreen(),
       },
     );
   }
@@ -126,6 +124,59 @@ class WelcomePage extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class InitialRedirectScreen extends StatefulWidget {
+  const InitialRedirectScreen({super.key});
+
+  @override
+  _InitialRedirectScreenState createState() => _InitialRedirectScreenState();
+}
+
+class _InitialRedirectScreenState extends State<InitialRedirectScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    await Future.delayed(Duration(seconds: 1)); // Optional: show splash effect
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthenticationScreen()),
+      );
+    } else {
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection("users")
+              .doc(user.uid)
+              .get();
+
+      final onboardingComplete = userDoc.data()?["onboardingComplete"] ?? false;
+
+      if (onboardingComplete) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AppFace()),
+        );
+      } else {
+        Navigator.pushReplacementNamed(context, "/chatbotOnboarding");
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(child: CircularProgressIndicator(color: Colors.green)),
     );
   }
 }

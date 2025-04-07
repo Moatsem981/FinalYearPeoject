@@ -60,10 +60,16 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => AppFace()),
-        );
+        if (isLogin) {
+          // Go straight to app if logging in
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => AppFace()),
+          );
+        } else {
+          // Go to onboarding if it's a new signup
+          Navigator.pushReplacementNamed(context, "/chatbotOnboarding");
+        }
       }
     } catch (error) {
       _showErrorDialog(error.toString());

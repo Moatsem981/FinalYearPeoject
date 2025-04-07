@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myunicircle1/screens/ChatbotOnboardingScreen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -15,7 +16,6 @@ class ProfileScreen extends StatelessWidget {
         title: const Text("Profile"),
         centerTitle: true,
         actions: [
-          // Profile Picture
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
@@ -31,7 +31,6 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Details
             Text(
               user?.displayName ?? "Student Name",
               style: const TextStyle(
@@ -47,7 +46,6 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Profile Options
             _buildProfileOption(
               icon: Icons.edit,
               title: "Edit Profile",
@@ -55,6 +53,18 @@ class ProfileScreen extends StatelessWidget {
                 print("Edit Profile Clicked");
               },
             ),
+
+            _buildProfileOption(
+              icon: Icons.restaurant_menu,
+              title: "Edit Nutrition Preferences",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ChatbotOnboardingScreen()),
+                );
+              },
+            ),
+
             _buildProfileOption(
               icon: Icons.notifications,
               title: "Notifications",
@@ -76,9 +86,9 @@ class ProfileScreen extends StatelessWidget {
                 print("Help Clicked");
               },
             ),
+
             const SizedBox(height: 20),
 
-            // Logout Button
             Center(
               child: ElevatedButton.icon(
                 onPressed: () async {
@@ -109,7 +119,6 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // Profile Options
   Widget _buildProfileOption({
     required IconData icon,
     required String title,
