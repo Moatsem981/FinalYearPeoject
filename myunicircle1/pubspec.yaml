@@ -22,6 +22,9 @@ dependencies:
   image: ^3.2.1
   csv: ^5.0.0
   flutter_card_swiper: ^3.0.1
+  intl: ^0.18.1
+  
+  
   
   
 
@@ -47,6 +50,7 @@ flutter:
     - assets/kale-and-pumpkin-falafels-with-pickled-carrot-slaw.jpg
     - assets/paneer-curry-with-peas-358211.jpg
     - assets/tomato-and-cabbage-tabbouleh-51239630.jpg
+    
     
     
     

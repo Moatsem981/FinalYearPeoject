@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
       "icon": Icons.analytics,
       "title": "Nutrition Tracker",
       "subtitle": "Monitor your daily food intake and macros.",
-      "route": "/nutritionTracker",
+      "route": "/NutritionTracker",
     },
   ];
 

@@ -7,6 +7,8 @@ import 'package:image/image.dart' as img;
 import 'package:csv/csv.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myunicircle1/screens/RecipeSwipesScreen.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // For FirebaseAuth
+import 'package:myunicircle1/screens/RecipeDetailScreen.dart'; // For RecipeDetailScreen
 
 class ScanIngredientsScreen extends StatefulWidget {
   @override
@@ -185,19 +187,17 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
       final recipesCollection = FirebaseFirestore.instance.collection(
         "recipes",
       );
-      List<Map<String, String>> suggestedRecipes = [];
+      List<Map<String, dynamic>> suggestedRecipes = []; // Changed to dynamic
 
       for (String ingredient in _predictions) {
-        ingredient = ingredient.trim().toLowerCase(); // Normalize input
+        ingredient = ingredient.trim().toLowerCase();
 
-        // 🔹 Try searching with arrayContains
         var querySnapshot =
             await recipesCollection
-                .where("Main_Ingredients", arrayContains: ingredient)
-                .limit(20) // ✅ Limit results to 20
+                .where("Main_Ingredients", isEqualTo: ingredient)
+                .limit(20)
                 .get();
 
-        // 🔹 If no results, try substring search (for string-based Main_Ingredients)
         if (querySnapshot.docs.isEmpty) {
           querySnapshot =
               await recipesCollection
@@ -206,24 +206,16 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
                     "Main_Ingredients",
                     isLessThanOrEqualTo: ingredient + '\uf8ff',
                   )
-                  .limit(20) // ✅ Limit results to 20
+                  .limit(20)
                   .get();
         }
 
         for (var doc in querySnapshot.docs) {
-          Map<String, String> recipe = {};
-          doc.data().forEach((key, value) {
-            recipe[key] = value.toString();
-          });
-
-          // 🔹 Add image path dynamically from local assets
-          String imageName = recipe['Image_Name'] ?? 'default_image';
-          recipe['Image_Path'] = 'assets/recipe_images/$imageName.jpg';
-
+          Map<String, dynamic> recipe = doc.data();
+          recipe['id'] = doc.id; // Add document ID
           suggestedRecipes.add(recipe);
         }
 
-        // ✅ If we reach 20 recipes, stop fetching more
         if (suggestedRecipes.length >= 20) break;
       }
 
@@ -238,18 +230,64 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
         return;
       }
 
-      // ✅ Ensure we only take the first 20 results
-      suggestedRecipes = suggestedRecipes.take(20).toList();
-
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => RecipeSwipesScreen(recipes: suggestedRecipes),
+          builder:
+              (context) => RecipeSwipesScreen(
+                recipes: suggestedRecipes,
+                scannedImage: _selectedImages.last,
+                onSaveForLater: (recipe) {
+                  _saveRecipeToFirestore(recipe);
+                },
+                onViewRecipe: (recipe) {
+                  _showRecipeDetails(context, recipe);
+                },
+              ),
         ),
       );
     } catch (e) {
       print("❌ Error fetching recipes: $e");
     }
+  }
+
+  Future<void> _saveRecipeToFirestore(Map<String, dynamic> recipe) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('savedRecipes')
+            .doc(recipe['id'])
+            .set({
+              'recipeId': recipe['id'],
+              'savedAt': FieldValue.serverTimestamp(),
+              'recipeData': recipe,
+            });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Recipe saved for later!")));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save recipe: ${e.toString()}")),
+      );
+    }
+  }
+
+  void _showRecipeDetails(BuildContext context, Map<String, dynamic> recipe) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => RecipeDetailScreen(
+              recipe: recipe,
+              scannedImage: _selectedImages.last,
+            ),
+      ),
+    );
   }
 
   @override

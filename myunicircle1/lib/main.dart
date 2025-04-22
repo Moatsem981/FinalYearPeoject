@@ -5,12 +5,12 @@ import 'package:myunicircle1/screens/AppFace.dart';
 import 'package:myunicircle1/screens/scanIngredients.dart';
 import 'package:myunicircle1/screens/SuggestedMeals.dart';
 import 'package:myunicircle1/screens/ChatbotOnboardingScreen.dart';
-import 'package:myunicircle1/screens/SocialInsights.dart';
 import 'package:myunicircle1/screens/ProfileScreen.dart';
 import 'package:myunicircle1/screens/SuggestedMeals.dart' as suggestedMeals;
 import 'package:myunicircle1/screens/InitialRedirectScreen.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // ✅ add this
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:myunicircle1/screens/NutritionTracker.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,15 +34,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Uni Circle',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: AuthenticationScreen(),
+      home: AppFace(),
 
       routes: {
         "/scanIngredients": (context) => ScanIngredientsScreen(),
         "/suggestedMeals":
-            (context) => const suggestedMeals.SuggestedMealsScreen(),
-        "/socialInsights": (context) => const SocialInsightsScreen(),
+            (context) => const MealChatbotScreen(), // Updated this line
         "/profileScreen": (context) => const ProfileScreen(),
         "/chatbotOnboarding": (context) => ChatbotOnboardingScreen(),
+        "/NutritionTracker": (context) => const NutritionTracker(),
       },
     );
   }
