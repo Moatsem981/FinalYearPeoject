@@ -27,8 +27,8 @@ class RecipeDetailScreen extends StatelessWidget {
                   DateTime.now().millisecondsSinceEpoch.toString(),
               'recipeData': recipe,
               'cookedAt': FieldValue.serverTimestamp(),
-              'rating': null, // Can be updated later
-              'notes': null, // Can be added later
+              'rating': null,
+              'notes': null,
             });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -129,7 +129,7 @@ class RecipeDetailScreen extends StatelessWidget {
               ),
             ),
           ),
-          // Add the "Mark as Cooked" button at the bottom
+
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: SizedBox(

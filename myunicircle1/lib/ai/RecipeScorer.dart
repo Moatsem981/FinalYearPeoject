@@ -31,7 +31,6 @@ class RecipeScorer {
       score += 5;
     }
 
-    // 3. Behavior Boost (10 pts max)
     final likedMatch =
         ingredients
             .where((ing) => likedIngredients.contains(ing.toLowerCase()))
@@ -41,7 +40,6 @@ class RecipeScorer {
     return score;
   }
 
-  // Helper: Parse ingredients from Firestore (handles List<dynamic> or String)
   static List<String> _parseIngredients(dynamic ingredients) {
     if (ingredients is List) {
       return ingredients.map((e) => e.toString().toLowerCase()).toList();
@@ -50,7 +48,6 @@ class RecipeScorer {
         [];
   }
 
-  // Helper: Safe preference matching
   static bool _matchesPreference(String? preference, dynamic recipeValue) {
     if (preference == null || recipeValue == null) return false;
     return recipeValue.toString().toLowerCase().contains(
@@ -58,7 +55,6 @@ class RecipeScorer {
     );
   }
 
-  // Updated to handle your schema
   static Future<Set<String>> fetchLikedIngredients(String userId) async {
     final doc =
         await FirebaseFirestore.instance.collection('users').doc(userId).get();

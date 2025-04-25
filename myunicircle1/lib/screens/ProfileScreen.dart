@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:myunicircle1/screens/ChatbotOnboardingScreen.dart';
+import 'package:myunicircle1/screens/authentication_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,107 +8,111 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final User? user = FirebaseAuth.instance.currentUser;
+    const Color primaryGreen = Colors.green;
 
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF7F56BB),
+        backgroundColor: primaryGreen,
+        foregroundColor: Colors.white,
         title: const Text("Profile"),
         centerTitle: true,
+        elevation: 0,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
-              radius: 22,
-              backgroundImage: AssetImage("assets/profile_avatar.png"),
-              backgroundColor: Colors.white10,
+              radius: 20,
+              backgroundImage:
+                  user?.photoURL != null
+                      ? NetworkImage(user!.photoURL!)
+                      : const AssetImage("assets/profile_avatar.png")
+                          as ImageProvider,
+              backgroundColor: Colors.white24,
+              onBackgroundImageError: (_, __) {
+                print("Error loading profile avatar asset.");
+              },
             ),
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              user?.displayName ?? "Student Name",
+              user?.displayName ?? user?.email?.split('@')[0] ?? "Student",
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: 8),
             Text(
               user?.email ?? "your@email.com",
-              style: const TextStyle(fontSize: 14, color: Colors.white70),
+              style: const TextStyle(fontSize: 15, color: Colors.white70),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
 
             _buildProfileOption(
-              icon: Icons.edit,
-              title: "Edit Profile",
+              icon: Icons.privacy_tip_outlined,
+              title: "Privacy & Security",
+              iconColor: primaryGreen,
               onTap: () {
-                print("Edit Profile Clicked");
-              },
-            ),
-
-            _buildProfileOption(
-              icon: Icons.restaurant_menu,
-              title: "Edit Nutrition Preferences",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => ChatbotOnboardingScreen()),
+                print("Privacy & Security Clicked");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      "Privacy & Security screen not implemented yet.",
+                    ),
+                  ),
                 );
               },
             ),
 
-            _buildProfileOption(
-              icon: Icons.notifications,
-              title: "Notifications",
-              onTap: () {
-                print("Notifications Clicked");
-              },
-            ),
-            _buildProfileOption(
-              icon: Icons.privacy_tip,
-              title: "Privacy & Security",
-              onTap: () {
-                print("Privacy Clicked");
-              },
-            ),
-            _buildProfileOption(
-              icon: Icons.help_outline,
-              title: "Help & Support",
-              onTap: () {
-                print("Help Clicked");
-              },
-            ),
-
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
 
             Center(
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  await FirebaseAuth.instance.signOut();
-                  Navigator.pushReplacementNamed(context, "/");
+                  try {
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AuthenticationScreen(),
+                      ),
+                      (Route<dynamic> route) => false,
+                    );
+                  } catch (e) {
+                    print("Error signing out: $e");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Error signing out: ${e.toString()}"),
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     vertical: 12,
-                    horizontal: 24,
+                    horizontal: 30,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
+                  elevation: 3,
                 ),
-                icon: const Icon(Icons.exit_to_app, color: Colors.white),
+                icon: const Icon(Icons.logout, size: 20),
                 label: const Text(
                   "Logout",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -123,22 +127,32 @@ class ProfileScreen extends StatelessWidget {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    required Color iconColor,
   }) {
     return Card(
-      color: Colors.white10,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      color: Colors.white.withOpacity(0.08),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(vertical: 6.0),
+      elevation: 0,
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF7F56BB), size: 22),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Icon(icon, color: iconColor, size: 24),
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         trailing: const Icon(
           Icons.arrow_forward_ios,
-          color: Colors.white70,
-          size: 14,
+          color: Colors.white54,
+          size: 16,
         ),
         onTap: onTap,
+        splashColor: iconColor.withOpacity(0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

@@ -11,15 +11,16 @@ import 'package:myunicircle1/screens/InitialRedirectScreen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myunicircle1/screens/NutritionTracker.dart';
+import 'package:myunicircle1/screens/RecipesForYouScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
     await Firebase.initializeApp();
-    print("🔥 Firebase Initialized Successfully!");
+    print("Firebase Initialized Successfully!");
   } catch (e) {
-    print("🔥 Firebase Initialization Error: $e");
+    print("Firebase Initialization Error: $e");
   }
 
   runApp(const MyApp());
@@ -34,15 +35,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Uni Circle',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: AppFace(),
+      home: AuthenticationScreen(),
 
       routes: {
         "/scanIngredients": (context) => ScanIngredientsScreen(),
-        "/suggestedMeals":
-            (context) => const MealChatbotScreen(), // Updated this line
+        "/suggestedMeals": (context) => const MealChatbotScreen(),
         "/profileScreen": (context) => const ProfileScreen(),
         "/chatbotOnboarding": (context) => ChatbotOnboardingScreen(),
         "/NutritionTracker": (context) => const NutritionTracker(),
+        "/recipesForYou": (context) => const RecipesForYouScreen(),
       },
     );
   }
@@ -54,7 +55,7 @@ class WelcomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Dark theme background
+      backgroundColor: Colors.black,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -63,7 +64,7 @@ class WelcomePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 80),
-                // Logo at the top
+
                 Image.asset(
                   "assets/UNICIRCLELOGO2.png",
                   height: 210,
@@ -71,7 +72,6 @@ class WelcomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // App Title
                 const Text(
                   "Welcome to Uni Circle",
                   style: TextStyle(
@@ -83,7 +83,6 @@ class WelcomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Description
                 const Text(
                   "Connect with students based on shared interests, "
                   "language preferences, and social activities. "
@@ -93,7 +92,6 @@ class WelcomePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 40),
 
-                // Continue Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -143,7 +141,7 @@ class _InitialRedirectScreenState extends State<InitialRedirectScreen> {
   }
 
   Future<void> _checkOnboardingStatus() async {
-    await Future.delayed(Duration(seconds: 1)); // Optional: show splash effect
+    await Future.delayed(Duration(seconds: 1));
 
     final user = FirebaseAuth.instance.currentUser;
 

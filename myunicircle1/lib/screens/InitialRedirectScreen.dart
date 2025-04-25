@@ -18,7 +18,6 @@ class _InitialRedirectScreenState extends State<InitialRedirectScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      // Not logged in - redirect to login/signup
       Navigator.pushReplacementNamed(context, '/auth');
     } else {
       final userDoc =
@@ -30,10 +29,7 @@ class _InitialRedirectScreenState extends State<InitialRedirectScreen> {
       final onboardingComplete = userDoc.data()?["onboardingComplete"] ?? false;
 
       if (onboardingComplete) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/home',
-        ); // Your main app screen
+        Navigator.pushReplacementNamed(context, '/home');
       } else {
         Navigator.pushReplacementNamed(context, '/chatbotOnboarding');
       }

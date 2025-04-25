@@ -9,12 +9,12 @@ class AppFace extends StatefulWidget {
 }
 
 class _AppFaceState extends State<AppFace> {
-  int _selectedIndex = 0; // Track selected tab
+  int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    HomeScreen(), // Home content with features
-    SearchScreen(), // Search Page (Placeholder)
-    const ProfileScreen(), // Profile Page
+    HomeScreen(),
+    SearchScreen(),
+    const ProfileScreen(),
   ];
 
   void _onTabSelected(int index) {
@@ -47,7 +47,6 @@ class _AppFaceState extends State<AppFace> {
   }
 }
 
-// ✅ HomeScreen with AI Meal Suggestion Features
 class HomeScreen extends StatefulWidget {
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -70,9 +69,9 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       "icon": Icons.restaurant_menu,
-      "title": "Quick Recipes",
+      "title": "Recipes Just For you",
       "subtitle": "Discover easy and fast recipes.",
-      "route": "/quickRecipes",
+      "route": "/recipesForYou",
     },
     {
       "icon": Icons.analytics,
@@ -82,14 +81,12 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  // List of images for the slider
   final List<String> _sliderImages = [
     "assets/AppMainPic1.jpg",
     "assets/AppMainPic2.jpg",
     "assets/AppMainPic3.jpg",
   ];
 
-  // Track the current page in the slider
   int _currentPage = 0;
 
   @override
@@ -129,16 +126,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Image Slider with Page Indicator
             Column(
               children: [
                 SizedBox(
-                  height: 200, // Adjust height as needed
+                  height: 200,
                   child: PageView.builder(
                     itemCount: _sliderImages.length,
                     onPageChanged: (index) {
                       setState(() {
-                        _currentPage = index; // Update the current page index
+                        _currentPage = index;
                       });
                     },
                     itemBuilder: (context, index) {
@@ -148,9 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(10),
                           child: Image.asset(
                             _sliderImages[index],
-                            fit:
-                                BoxFit
-                                    .cover, // Ensure the image covers the area
+                            fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Center(
                                 child: Text(
@@ -167,7 +161,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 10),
 
-                // Page Indicator (Dots)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
@@ -179,10 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color:
-                            _currentPage == index
-                                ? Colors
-                                    .green // Active dot color
-                                : Colors.grey, // Inactive dot color
+                            _currentPage == index ? Colors.green : Colors.grey,
                       ),
                     ),
                   ),
@@ -266,7 +256,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ✅ SearchScreen Placeholder
 class SearchScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

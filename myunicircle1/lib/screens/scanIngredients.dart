@@ -2,25 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'dart:io';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:image/image.dart' as img;
-import 'package:csv/csv.dart';
+import 'package:flutter/services.dart'
+    show rootBundle, FilteringTextInputFormatter, TextInputFormatter;
+import 'package:image/image.dart' as img; // image package imported as img
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:myunicircle1/screens/RecipeSwipesScreen.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // For FirebaseAuth
-import 'package:myunicircle1/screens/RecipeDetailScreen.dart'; // For RecipeDetailScreen
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myunicircle1/screens/RecipeDetailScreen.dart';
+import 'dart:math' as math;
 
 class ScanIngredientsScreen extends StatefulWidget {
+  const ScanIngredientsScreen({super.key});
+
   @override
   _ScanIngredientsScreenState createState() => _ScanIngredientsScreenState();
 }
 
 class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   List<String> _predictions = [];
   List<String> _labels = [];
   bool _isLoading = false;
-  List<Map<String, String>> _recipes = [];
 
   final ImagePicker _picker = ImagePicker();
   Interpreter? _interpreter;
@@ -29,144 +31,212 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   void initState() {
     super.initState();
     _loadModel();
-    _loadRecipes();
+  }
+
+  @override
+  void dispose() {
+    _interpreter?.close();
+    super.dispose();
   }
 
   Future<void> _loadModel() async {
     try {
       _labels = await _loadLabels("assets/labels.txt");
-      final byteData = await rootBundle.load('assets/FVmodel.tflite');
-      if (byteData.lengthInBytes == 0) {
-        print("❌ FVmodel.tflite exists but is empty!");
-        return;
-      }
-
       _interpreter = await Interpreter.fromAsset('assets/FVmodel.tflite');
-      print("✅ Model loaded successfully!");
+      print("TFLite Model loaded successfully!");
     } catch (e) {
-      print("❌ Failed to load model: $e");
-    }
-  }
-
-  Future<void> _loadRecipes() async {
-    try {
-      final csvString = await rootBundle.loadString(
-        'assets/healthy_fruit_veg_recipes_FINAL.csv',
-      );
-      List<List<dynamic>> csvTable = CsvToListConverter().convert(csvString);
-
-      // Debug: Print the first few rows of the CSV file
-      print("CSV File Loaded. First few rows:");
-      for (int i = 0; i < (csvTable.length > 5 ? 5 : csvTable.length); i++) {
-        print(csvTable[i]);
+      print("Failed to load TFLite model: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error loading ingredient model: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
-
-      // Assuming the first row is the header
-      List<String> headers = csvTable[0].map((e) => e.toString()).toList();
-      for (int i = 1; i < csvTable.length; i++) {
-        Map<String, String> recipe = {};
-        for (int j = 0; j < headers.length; j++) {
-          recipe[headers[j]] = csvTable[i][j].toString();
-        }
-        _recipes.add(recipe);
-      }
-
-      // Debug: Print number of recipes loaded
-      print("Number of Recipes Loaded: ${_recipes.length}");
-    } catch (e) {
-      print("❌ Failed to load recipes: $e");
     }
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final pickedFile = await _picker.pickImage(source: source);
-    if (pickedFile != null) {
-      setState(() {
-        _selectedImages.add(File(pickedFile.path));
-      });
-      _predictImage(File(pickedFile.path));
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+      );
+      if (pickedFile != null && mounted) {
+        final imageFile = File(pickedFile.path);
+        setState(() {
+          _selectedImages.add(imageFile);
+          _predictions.add("Processing...");
+        });
+        _predictImage(imageFile, _selectedImages.length - 1);
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error picking image: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _predictImage(File imageFile) async {
+  Future<void> _predictImage(File imageFile, int predictionIndex) async {
     if (_interpreter == null || _labels.isEmpty) {
-      print("❌ Model or labels not loaded");
+      print("Model or labels not loaded, cannot predict.");
+      if (mounted) {
+        setState(() {
+          if (predictionIndex < _predictions.length) {
+            _predictions[predictionIndex] = "Error: Model not ready";
+          }
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Ingredient recognition model not ready."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
       var inputImage = await _preprocessImage(imageFile);
-      if (inputImage.isEmpty) return;
+      if (inputImage.isEmpty || !mounted) {
+        if (mounted && predictionIndex < _predictions.length) {
+          setState(() {
+            _predictions[predictionIndex] = "Error: Image processing failed";
+          });
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      ;
 
-      print("📌 Number of labels: ${_labels.length}");
-
+      if (_interpreter!.getOutputTensor(0).shape.length < 2 ||
+          _interpreter!.getOutputTensor(0).shape[1] != _labels.length) {
+        throw Exception(
+          "Model output shape (${_interpreter!.getOutputTensor(0).shape}) mismatch with labels count (${_labels.length}).",
+        );
+      }
       var output = List.filled(
-        _labels.length,
+        1 * _labels.length,
         0.0,
       ).reshape([1, _labels.length]);
 
       _interpreter!.run(inputImage, output);
 
       List<double> outputList = List<double>.from(output[0]);
+      double maxScore = outputList.reduce(math.max);
+      int predictedIndex = outputList.indexOf(maxScore);
 
-      int predictedIndex = outputList.indexOf(
-        outputList.reduce((a, b) => a > b ? a : b),
+      String predictedLabel = "Unknown";
+      if (predictedIndex >= 0 && predictedIndex < _labels.length) {
+        predictedLabel = _labels[predictedIndex];
+      } else {
+        print("Predicted index out of bounds: $predictedIndex");
+      }
+
+      if (mounted && predictionIndex < _predictions.length) {
+        setState(() {
+          _predictions[predictionIndex] = predictedLabel;
+        });
+      }
+
+      print(
+        "Prediction for image $predictionIndex: $predictedLabel (Score: $maxScore)",
       );
-
-      String predictedLabel = _labels[predictedIndex];
-
-      setState(() {
-        _predictions.add(predictedLabel);
-      });
-
-      print("✅ Prediction: $predictedLabel");
     } catch (e) {
-      print("❌ Error during prediction: $e");
+      print("Error during prediction for image $predictionIndex: $e");
+      if (mounted) {
+        setState(() {
+          if (predictionIndex < _predictions.length) {
+            _predictions[predictionIndex] = "Error predicting";
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error recognizing ingredient: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<List<List<List<List<double>>>>> _preprocessImage(
     File imageFile,
   ) async {
-    var imageBytes = await imageFile.readAsBytes();
-    var image = img.decodeImage(imageBytes);
+    try {
+      final imageBytes = await imageFile.readAsBytes();
+      img.Image? image = img.decodeImage(imageBytes);
 
-    if (image == null) {
-      print("❌ Failed to decode image");
+      if (image == null) {
+        print("❌ Failed to decode image");
+        return [];
+      }
+
+      const int inputSize = 150;
+
+      img.Image resizedImage = img.copyResize(
+        image,
+        width: inputSize,
+        height: inputSize,
+        interpolation: img.Interpolation.linear,
+      );
+
+      var normalizedImage = List.generate(
+        inputSize,
+        (y) => List.generate(inputSize, (x) {
+          int pixel = resizedImage.getPixel(x, y);
+          return [
+            img.getRed(pixel) / 255.0,
+            img.getGreen(pixel) / 255.0,
+            img.getBlue(pixel) / 255.0,
+          ];
+        }),
+      );
+
+      return [normalizedImage];
+    } catch (e) {
+      print("Error during image preprocessing: $e");
       return [];
     }
-
-    var resizedImage = img.copyResize(image, width: 150, height: 150);
-
-    var normalizedImage = List.generate(
-      150,
-      (y) => List.generate(150, (x) {
-        var pixel = resizedImage.getPixel(x, y);
-        return [
-          img.getRed(pixel) / 255.0,
-          img.getGreen(pixel) / 255.0,
-          img.getBlue(pixel) / 255.0,
-        ];
-      }),
-    );
-
-    return [normalizedImage];
   }
 
   Future<List<String>> _loadLabels(String labelsPath) async {
-    final labels = await rootBundle.loadString(labelsPath);
-    return labels.split('\n').where((label) => label.isNotEmpty).toList();
+    try {
+      final labelsString = await rootBundle.loadString(labelsPath);
+      return labelsString
+          .split('\n')
+          .map((label) => label.trim())
+          .where((label) => label.isNotEmpty)
+          .toList();
+    } catch (e) {
+      print("Error loading labels: $e");
+      return [];
+    }
   }
 
   void _clearAll() {
+    if (!mounted) return;
     setState(() {
       _selectedImages.clear();
       _predictions.clear();
@@ -174,59 +244,78 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
   }
 
   void _suggestMeals() async {
-    if (_predictions.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("No ingredients predicted yet!")));
+    final validPredictions =
+        _predictions
+            .where((p) => p != "Processing..." && !p.startsWith("Error"))
+            .toSet()
+            .toList();
+
+    if (validPredictions.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please scan some ingredients first!")),
+        );
+      }
       return;
     }
 
-    print("🔍 Searching Firestore for recipes with ingredients: $_predictions");
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    print(
+      "🔍 Searching Firestore 'recipes' collection for ingredients: $validPredictions",
+    );
 
     try {
       final recipesCollection = FirebaseFirestore.instance.collection(
         "recipes",
       );
-      List<Map<String, dynamic>> suggestedRecipes = []; // Changed to dynamic
+      List<Map<String, dynamic>> suggestedRecipes = [];
+      Set<String> addedRecipeIds = {};
 
-      for (String ingredient in _predictions) {
-        ingredient = ingredient.trim().toLowerCase();
+      for (String ingredient in validPredictions) {
+        if (suggestedRecipes.length >= 10) break;
 
-        var querySnapshot =
+        String searchTerm = ingredient.trim().toLowerCase();
+        if (searchTerm.isEmpty) continue;
+
+        QuerySnapshot querySnapshot =
             await recipesCollection
-                .where("Main_Ingredients", isEqualTo: ingredient)
-                .limit(20)
+                .where("Main_Ingredients", isEqualTo: searchTerm)
+                .limit(5)
                 .get();
 
-        if (querySnapshot.docs.isEmpty) {
-          querySnapshot =
-              await recipesCollection
-                  .where("Main_Ingredients", isGreaterThanOrEqualTo: ingredient)
-                  .where(
-                    "Main_Ingredients",
-                    isLessThanOrEqualTo: ingredient + '\uf8ff',
-                  )
-                  .limit(20)
-                  .get();
-        }
-
         for (var doc in querySnapshot.docs) {
-          Map<String, dynamic> recipe = doc.data();
-          recipe['id'] = doc.id; // Add document ID
-          suggestedRecipes.add(recipe);
-        }
+          if (suggestedRecipes.length >= 10) break;
 
-        if (suggestedRecipes.length >= 20) break;
+          final recipeId = doc.id;
+          if (!addedRecipeIds.contains(recipeId)) {
+            Map<String, dynamic> recipe = doc.data() as Map<String, dynamic>;
+            recipe['id'] = recipeId;
+            suggestedRecipes.add(recipe);
+            addedRecipeIds.add(recipeId);
+          }
+        }
       }
 
-      print("✅ Found ${suggestedRecipes.length} matching recipes!");
+      if (!mounted) return;
+
+      print("Found ${suggestedRecipes.length} potentially matching recipes!");
 
       if (suggestedRecipes.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("No recipes found for predicted ingredients!"),
+          const SnackBar(
+            content: Text(
+              "No recipes found matching the scanned ingredients in the 'recipes' collection.",
+            ),
+            duration: Duration(seconds: 3),
           ),
         );
+        setState(() {
+          _isLoading = false;
+        });
         return;
       }
 
@@ -236,55 +325,112 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
           builder:
               (context) => RecipeSwipesScreen(
                 recipes: suggestedRecipes,
-                scannedImage: _selectedImages.last,
-                onSaveForLater: (recipe) {
-                  _saveRecipeToFirestore(recipe);
-                },
-                onViewRecipe: (recipe) {
-                  _showRecipeDetails(context, recipe);
-                },
+                scannedImage:
+                    _selectedImages.isNotEmpty ? _selectedImages.last : null,
+                onSaveForLater: (recipe) => _saveRecipeToFirestore(recipe),
+                onViewRecipe: (recipe) => _showRecipeDetails(context, recipe),
+                onSkipRecipe: (recipe) => _logSkippedRecipe(recipe),
               ),
         ),
       );
     } catch (e) {
-      print("❌ Error fetching recipes: $e");
+      print("Error fetching recipes based on ingredients: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error suggesting meals: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _saveRecipeToFirestore(Map<String, dynamic> recipe) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
+      final recipeId = recipe['id'] as String?;
+      if (user != null && recipeId != null && mounted) {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .collection('savedRecipes')
-            .doc(recipe['id'])
+            .doc(recipeId)
             .set({
-              'recipeId': recipe['id'],
+              'recipeId': recipeId,
               'savedAt': FieldValue.serverTimestamp(),
               'recipeData': recipe,
             });
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Recipe saved for later!")));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Saved ${recipe['Recipe Name'] ?? 'Recipe'} for later!",
+              ),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+      } else if (recipeId == null) {
+        debugPrint("Error saving recipe: Recipe ID is null.");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to save recipe: ${e.toString()}")),
-      );
+      debugPrint("Error saving recipe: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to save recipe: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _logSkippedRecipe(Map<String, dynamic> recipe) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      final recipeId = recipe['id'] as String?;
+      if (user != null && recipeId != null && mounted) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('skippedRecipes')
+            .doc(recipeId)
+            .set({
+              'recipeId': recipeId,
+              'skippedAt': FieldValue.serverTimestamp(),
+              'cuisine': recipe['Cuisine'],
+              'mealType': recipe['Meal_Type'],
+              'mainIngredient': recipe['Main_Ingredients'],
+            });
+        debugPrint("Logged skip for recipe: $recipeId");
+      } else if (recipeId == null) {
+        debugPrint("Error logging skipped recipe: Recipe ID is null.");
+      }
+    } catch (e) {
+      debugPrint("Error logging skipped recipe: $e");
     }
   }
 
   void _showRecipeDetails(BuildContext context, Map<String, dynamic> recipe) {
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder:
             (context) => RecipeDetailScreen(
               recipe: recipe,
-              scannedImage: _selectedImages.last,
+              scannedImage:
+                  _selectedImages.isNotEmpty ? _selectedImages.last : null,
             ),
       ),
     );
@@ -298,279 +444,313 @@ class _ScanIngredientsScreenState extends State<ScanIngredientsScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Colors.black, Colors.green.shade900],
+            colors: [Colors.grey.shade900, Colors.green.shade900],
           ),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(height: 40),
-              Center(
-                child: Text(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
                   "Scan Ingredients",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              SizedBox(height: 20),
-              Card(
-                color: Colors.white10,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                const SizedBox(height: 8),
+                const Text(
+                  "Scan fruits & veggies to get recipe ideas!",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                  textAlign: TextAlign.center,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: () => _pickImage(ImageSource.gallery),
-                        child: Container(
-                          height: 180,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white10,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child:
-                              _selectedImages.isEmpty
-                                  ? Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.camera_alt,
-                                        size: 50,
-                                        color: Colors.green,
-                                      ),
-                                      SizedBox(height: 10),
-                                      Text(
-                                        "Tap to Upload Image",
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  )
-                                  : ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: Image.file(
-                                      _selectedImages.last,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        "Upload or take a photo of your ingredients",
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              if (_selectedImages.isNotEmpty) ...[
+                const SizedBox(height: 30),
                 Card(
-                  color: Colors.white10,
+                  color: Colors.black.withOpacity(0.3),
+                  elevation: 4,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(15),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Container(
+                          height: 180,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white24),
+                          ),
+                          child: InkWell(
+                            onTap: () => _pickImage(ImageSource.gallery),
+                            child:
+                                _selectedImages.isEmpty
+                                    ? Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.add_photo_alternate_outlined,
+                                          size: 60,
+                                          color: Colors.greenAccent,
+                                        ),
+                                        SizedBox(height: 10),
+                                        Text(
+                                          "Tap to Upload Image",
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                    : ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.file(
+                                        _selectedImages.last,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return const Center(
+                                            child: Text(
+                                              "Error loading image",
+                                              style: TextStyle(
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            Icon(Icons.image, color: Colors.green),
-                            SizedBox(width: 10),
-                            Text(
-                              "Uploaded Images",
-                              style: TextStyle(
+                            ElevatedButton.icon(
+                              onPressed: () => _pickImage(ImageSource.camera),
+                              icon: const Icon(
+                                Icons.camera_alt,
                                 color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                              ),
+                              label: const Text(
+                                "Take Photo",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.teal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 15,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () => _pickImage(ImageSource.gallery),
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                "Add Image",
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueAccent,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 15,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                        SizedBox(height: 10),
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          itemCount: _selectedImages.length,
-                          itemBuilder: (context, index) {
-                            return ListTile(
-                              leading: Icon(Icons.image, color: Colors.green),
-                              title: Text(
-                                "Image ${index + 1}",
-                                style: TextStyle(color: Colors.white),
-                              ),
-                              subtitle:
-                                  _predictions.length > index
-                                      ? Text(
-                                        "Prediction: ${_predictions[index]}",
-                                        style: TextStyle(color: Colors.green),
-                                      )
-                                      : Text(
-                                        "Processing...",
-                                        style: TextStyle(color: Colors.white70),
-                                      ),
-                              trailing: IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedImages.removeAt(index);
-                                    _predictions.removeAt(index);
-                                  });
-                                },
-                              ),
-                            );
-                          },
                         ),
                       ],
                     ),
                   ),
                 ),
-                SizedBox(height: 20),
-              ],
-              if (_isLoading) CircularProgressIndicator(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _pickImage(ImageSource.camera),
-                    icon: Icon(Icons.camera, color: Colors.white),
-                    label: Text(
-                      "Take Photo",
-                      style: TextStyle(color: Colors.white),
+                const SizedBox(height: 20),
+                if (_selectedImages.isNotEmpty) ...[
+                  Card(
+                    color: Colors.black.withOpacity(0.3),
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.image_search,
+                                color: Colors.greenAccent,
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                "Scanned Items",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const Spacer(),
+                              if (_selectedImages.isNotEmpty)
+                                TextButton.icon(
+                                  onPressed: _clearAll,
+                                  icon: const Icon(
+                                    Icons.delete_sweep_outlined,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    "Clear All",
+                                    style: TextStyle(color: Colors.redAccent),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _selectedImages.length,
+                            itemBuilder: (context, index) {
+                              final predictionText =
+                                  (index < _predictions.length)
+                                      ? _predictions[index]
+                                      : "Waiting...";
+                              final bool isError = predictionText.startsWith(
+                                "Error",
+                              );
+                              final bool isProcessing =
+                                  predictionText == "Processing...";
+
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 4,
+                                  horizontal: 0,
+                                ),
+                                leading: ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.file(
+                                    _selectedImages[index],
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                title: Text(
+                                  "Item ${index + 1}",
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Prediction: $predictionText",
+                                  style: TextStyle(
+                                    color:
+                                        isError
+                                            ? Colors.redAccent
+                                            : (isProcessing
+                                                ? Colors.orangeAccent
+                                                : Colors.greenAccent),
+                                    fontSize: 14,
+                                    fontStyle:
+                                        isProcessing
+                                            ? FontStyle.italic
+                                            : FontStyle.normal,
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent.withOpacity(0.8),
+                                  ),
+                                  tooltip: "Remove this item",
+                                  onPressed: () {
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _selectedImages.removeAt(index);
+                                      if (index < _predictions.length) {
+                                        _predictions.removeAt(index);
+                                      }
+                                    });
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => _pickImage(ImageSource.gallery),
-                    icon: Icon(Icons.upload, color: Colors.white),
-                    label: Text(
-                      "Add Image",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
+                  const SizedBox(height: 20),
                 ],
-              ),
-              SizedBox(height: 10),
-              if (_selectedImages.isNotEmpty) ...[
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _clearAll,
-                    icon: Icon(Icons.clear, color: Colors.white),
-                    label: Text(
-                      "Clear All",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20.0),
+                    child: CircularProgressIndicator(color: Colors.greenAccent),
+                  ),
+
+                if (_selectedImages.isNotEmpty && !_isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10.0),
+                    child: Center(
+                      child: ElevatedButton.icon(
+                        onPressed: _suggestMeals,
+                        icon: const Icon(
+                          Icons.restaurant_menu,
+                          color: Colors.white,
+                        ),
+                        label: const Text(
+                          "Suggest Meals",
+                          style: TextStyle(color: Colors.white, fontSize: 18),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 5,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 20),
-                Center(
-                  child: ElevatedButton.icon(
-                    onPressed: _suggestMeals,
-                    icon: Icon(Icons.restaurant, color: Colors.white),
-                    label: Text(
-                      "Suggest Meals",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 40,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
+
+                const SizedBox(height: 20),
               ],
-            ],
+            ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class SuggestedMealsScreen extends StatelessWidget {
-  final List<Map<String, String>> recipes;
-
-  SuggestedMealsScreen({required this.recipes});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("Suggested Meals")),
-      body:
-          recipes.isEmpty
-              ? Center(
-                child: Text(
-                  "No recipes found for the predicted ingredients.",
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
-                ),
-              )
-              : ListView.builder(
-                itemCount: recipes.length,
-                itemBuilder: (context, index) {
-                  final recipe = recipes[index];
-                  return Card(
-                    margin: EdgeInsets.all(8.0),
-                    child: ListTile(
-                      title: Text(recipe['Recipe Name'] ?? 'No Name'),
-                      subtitle: Text(
-                        recipe['Cleaned_Ingredients'] ?? 'No Ingredients',
-                      ),
-                      onTap: () {
-                        // You can add more details here if needed
-                      },
-                    ),
-                  );
-                },
-              ),
     );
   }
 }

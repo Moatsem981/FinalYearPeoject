@@ -20,6 +20,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   bool isLoading = false;
 
   void _authenticate() async {
+    if (isLoading) return;
     setState(() => isLoading = true);
 
     try {
@@ -31,7 +32,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           password: passwordController.text.trim(),
         );
 
-        // 🔹 Fetch user data from Firestore on login
         DocumentSnapshot userDoc =
             await _firestore
                 .collection("users")
@@ -39,15 +39,23 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                 .get();
 
         if (userDoc.exists) {
-          print("✅ User logged in: ${userDoc["username"]}");
+          String username = userDoc.get('username') ?? 'User';
+          print("User logged in: $username");
+        } else {
+          print("User logged in, but no Firestore profile found.");
         }
       } else {
+        if (usernameController.text.trim().isEmpty) {
+          _showErrorDialog("Please enter a username to sign up.");
+          setState(() => isLoading = false);
+          return;
+        }
+
         userCredential = await _auth.createUserWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
 
-        // 🔹 Save user data to Firestore
         await _firestore.collection("users").doc(userCredential.user!.uid).set({
           "username": usernameController.text.trim(),
           "email": emailController.text.trim(),
@@ -55,50 +63,91 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           "createdAt": Timestamp.now(),
         });
 
-        print("✅ New user added to Firestore!");
+        print(" New user created and added to Firestore!");
       }
 
       User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
+      if (user != null && mounted) {
         if (isLogin) {
-          // Go straight to app if logging in
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => AppFace()),
+            MaterialPageRoute(builder: (context) => const AppFace()),
           );
         } else {
-          // Go to onboarding if it's a new signup
           Navigator.pushReplacementNamed(context, "/chatbotOnboarding");
         }
       }
+    } on FirebaseAuthException catch (error) {
+      String errorMessage = "An error occurred. Please try again.";
+      if (error.code == 'user-not-found') {
+        errorMessage = 'No user found for that email.';
+      } else if (error.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided.';
+      } else if (error.code == 'email-already-in-use') {
+        errorMessage = 'An account already exists for that email.';
+      } else if (error.code == 'weak-password') {
+        errorMessage = 'The password provided is too weak.';
+      } else if (error.code == 'invalid-email') {
+        errorMessage = 'The email address is not valid.';
+      }
+      print(" Authentication Error: ${error.code} - ${error.message}");
+      _showErrorDialog(errorMessage);
     } catch (error) {
-      _showErrorDialog(error.toString());
+      print(" General Error during authentication: $error");
+      _showErrorDialog("An unexpected error occurred: ${error.toString()}");
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
-
-    setState(() => isLoading = false);
   }
 
   void _resetPassword() async {
-    if (emailController.text.isEmpty) {
-      _showErrorDialog("Please enter your email to reset your password.");
+    final email = emailController.text.trim();
+    if (email.isEmpty) {
+      _showErrorDialog(
+        "Please enter your email address to reset your password.",
+      );
       return;
     }
 
+    setState(() => isLoading = true);
+
     try {
-      await _auth.sendPasswordResetEmail(email: emailController.text.trim());
-      _showSuccessDialog("A password reset email has been sent.");
+      await _auth.sendPasswordResetEmail(email: email);
+      _showSuccessDialog(
+        "A password reset link has been sent to $email. Please check your inbox (and spam folder).",
+      );
+    } on FirebaseAuthException catch (error) {
+      String errorMessage = "Failed to send reset email. Please try again.";
+      if (error.code == 'user-not-found') {
+        errorMessage = 'No user found for that email.';
+      } else if (error.code == 'invalid-email') {
+        errorMessage = 'The email address is not valid.';
+      }
+      print(" Password Reset Error: ${error.code} - ${error.message}");
+      _showErrorDialog(errorMessage);
     } catch (error) {
-      _showErrorDialog(error.toString());
+      print(" General Error during password reset: $error");
+      _showErrorDialog("An unexpected error occurred during password reset.");
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
   void _showErrorDialog(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: Colors.black,
-            title: const Text("Error", style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.grey[900],
+            title: const Text(
+              "Error",
+              style: TextStyle(color: Colors.redAccent),
+            ),
             content: Text(
               message,
               style: const TextStyle(color: Colors.white70),
@@ -106,7 +155,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text("OK", style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  "OK",
+                  style: TextStyle(color: Colors.greenAccent),
+                ),
               ),
             ],
           ),
@@ -114,12 +166,16 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   }
 
   void _showSuccessDialog(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: Colors.black,
-            title: const Text("Success", style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.grey[900],
+            title: const Text(
+              "Success",
+              style: TextStyle(color: Colors.greenAccent),
+            ),
             content: Text(
               message,
               style: const TextStyle(color: Colors.white70),
@@ -127,109 +183,13 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text("OK", style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  "OK",
+                  style: TextStyle(color: Colors.greenAccent),
+                ),
               ),
             ],
           ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF7F56BB),
-        title: Text(isLogin ? "Login" : "Sign Up"),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 50),
-              Image.asset("assets/UNICIRCLELOGO2.png", height: 150, width: 150),
-              const SizedBox(height: 30),
-
-              if (!isLogin)
-                TextField(
-                  controller: usernameController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration("Username"),
-                ),
-              const SizedBox(height: 20),
-
-              TextField(
-                controller: emailController,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("Email"),
-              ),
-              const SizedBox(height: 20),
-
-              TextField(
-                controller: passwordController,
-                style: const TextStyle(color: Colors.white),
-                obscureText: true,
-                decoration: _inputDecoration("Password"),
-              ),
-              const SizedBox(height: 10),
-
-              if (isLogin)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _resetPassword,
-                    child: const Text(
-                      "Forgot Password?",
-                      style: TextStyle(color: Color(0xFF7F56BB)),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 10),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _authenticate,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7F56BB),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child:
-                      isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : Text(
-                            isLogin ? "Login" : "Sign Up",
-                            style: const TextStyle(
-                              fontSize: 18,
-                              color: Colors.white,
-                            ),
-                          ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              TextButton(
-                onPressed: () {
-                  setState(() => isLogin = !isLogin);
-                },
-                child: Text(
-                  isLogin
-                      ? "Don't have an account? Sign Up"
-                      : "Already have an account? Login",
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ),
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -238,8 +198,147 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
       filled: true,
-      fillColor: Colors.white10,
+      fillColor: Colors.white.withOpacity(0.1),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey[700]!),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.green),
+      ),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryGreen = Colors.green;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: primaryGreen,
+        foregroundColor: Colors.white,
+        title: Text(isLogin ? "Login" : "Sign Up"),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // *** IMAGE WIDGET ***
+                Image.asset(
+                  "assets/plate.png",
+                  height: 180,
+
+                  color: primaryGreen,
+                  colorBlendMode: BlendMode.srcIn,
+                  errorBuilder:
+                      (context, error, stackTrace) => const Icon(
+                        Icons.restaurant_menu,
+                        size: 150,
+                        color: primaryGreen,
+                      ),
+                ),
+                const SizedBox(height: 40),
+
+                if (!isLogin)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 20.0),
+                    child: TextField(
+                      controller: usernameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration("Username"),
+                      keyboardType: TextInputType.text,
+                    ),
+                  ),
+
+                TextField(
+                  controller: emailController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration("Email"),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+
+                TextField(
+                  controller: passwordController,
+                  style: const TextStyle(color: Colors.white),
+                  obscureText: true,
+                  decoration: _inputDecoration("Password"),
+                ),
+                const SizedBox(height: 10),
+
+                if (isLogin)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: isLoading ? null : _resetPassword,
+                      child: const Text(
+                        "Forgot Password?",
+                        style: TextStyle(color: primaryGreen),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _authenticate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryGreen,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    child:
+                        isLoading
+                            ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            )
+                            : Text(isLogin ? "Login" : "Sign Up"),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                TextButton(
+                  onPressed:
+                      isLoading
+                          ? null
+                          : () {
+                            setState(() => isLogin = !isLogin);
+                          },
+                  child: Text(
+                    isLogin
+                        ? "Don't have an account? Sign Up"
+                        : "Already have an account? Login",
+                    style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
