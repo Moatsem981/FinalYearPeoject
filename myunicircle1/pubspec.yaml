@@ -44,7 +44,6 @@ flutter:
     - assets/labels.txt
     - assets/FVmodel.tflite
     - assets/healthy_fruit_veg_recipes_FINAL.csv
-    - assets/recipe_images/
     - assets/caramelized-plantain-parfait.jpg
     - assets/crispy-salt-and-pepper-potatoes-dan-kluger.jpg
     - assets/kale-and-pumpkin-falafels-with-pickled-carrot-slaw.jpg
