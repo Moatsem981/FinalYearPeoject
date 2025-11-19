@@ -35,8 +35,8 @@ This is a cross-platform (iOS/Android) mobile application focused on driving pos
 ### Installation and Run
 1.  Clone the repository:
     ```bash
-    git clone [YOUR-REPO-URL]
-    cd [YOUR-REPO-NAME]
+    git clone [https://github.com/Moatsem981/FinalYearPeoject.git]
+    cd [FinalYearPeoject]
     ```
 2.  Install all required packages:
     ```bash
